@@ -8,6 +8,8 @@ import time
  
 import cv2
 import mediapipe as mp
+
+from ui_dashboard import UiState, build_static_layer, render_dashboard
  
 ESP32_IP = "192.168.4.1"
 ESP32_PORT = 80
@@ -32,8 +34,12 @@ SHOULDER_Z_NEAR = -0.20
 SHOULDER_Z_FAR = 0.20
  
  
-COLOR_BLUE = (255, 0, 0)
+COLOR_BLUE = (235, 99, 37)      # #2563EB (BGR) - conexoes da mao
 COLOR_WHITE = (255, 255, 255)
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+LOGO_PATH = os.path.join(BASE_DIR, "logo.png")
+WINDOW_NAME = "Hand Control"
  
  
 logging.basicConfig(
@@ -379,117 +385,76 @@ class Esp32Sender:
  
  
 sender = Esp32Sender(ESP32_IP, ESP32_PORT)
- 
+
+static_layer = build_static_layer(LOGO_PATH)
+
 last_gripper_closed = None
 last_packet = None
- 
- 
+last_angles = None
+last_debug = None
+
+
 try:
- 
+
     while True:
- 
+
         success, img = cap.read()
- 
+
         if not success:
             log.warning("Falha ao capturar frame.")
             continue
- 
+
         img = cv2.flip(img, 1)
- 
+
         img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
- 
+
         results = hands.process(img_rgb)
- 
-        if results.multi_hand_landmarks:
- 
+
+        hand_detected = bool(results.multi_hand_landmarks)
+
+        if hand_detected:
+
             hand_lms = results.multi_hand_landmarks[0]
- 
+
             draw_hand(img, hand_lms)
- 
+
             gripper_state = detect_gripper_state(hand_lms)
- 
+
             if gripper_state is not None:
                 last_gripper_closed = gripper_state
- 
+
             axis_angles, debug = compute_axis_angles(hand_lms)
- 
-            axis_roll = int(axis_angles[0])
-            axis_elbow = int(axis_angles[1])
-            axis_shoulder = int(axis_angles[2])
- 
+
+            last_angles = axis_angles
+            last_debug = debug
+
             if last_gripper_closed is not None:
- 
+
                 if sender.submit(last_gripper_closed, axis_angles):
- 
+
                     last_packet = build_packet(
                         last_gripper_closed,
                         axis_angles,
                     )
- 
-            if last_gripper_closed is True:
-                gripper_label = "Garra: FECHADA"
-            elif last_gripper_closed is False:
-                gripper_label = "Garra: ABERTA"
-            else:
-                gripper_label = "Garra: aguardando"
- 
-            overlay_lines = [
- 
-                gripper_label,
- 
-                f"Roll:       {axis_roll:03d}",
-                f"Cotovelo:   {axis_elbow:03d}",
-                f"Ombro:      {axis_shoulder:03d}",
- 
-                "",
- 
-                f"hand_scale: {debug['hand_scale']:.3f}",
-                f"wrist Z:    {debug['wrist_z']:.3f}",
-                f"middle Z:   {debug['middle_z']:.3f}",
-                f"hand Z:     {debug['hand_z']:.3f}",
- 
-                "",
- 
-                f"ultimo envio: {last_packet or '---'}",
-                f"sincronizado: {'SIM' if sender.in_sync else 'NAO'}",
-            ]
- 
-            for i, line in enumerate(overlay_lines):
- 
-                cv2.putText(
-                    img,
-                    line,
-                    (10, 35 + i * 27),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.65,
-                    COLOR_WHITE,
-                    2,
-                    cv2.LINE_AA,
-                )
- 
-        else:
- 
-            cv2.putText(
-                img,
-                "Nenhuma mao detectada",
-                (10, 40),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.8,
-                COLOR_WHITE,
-                2,
-                cv2.LINE_AA,
-            )
- 
-        display = cv2.resize(img, (1000, 700))
- 
-        cv2.imshow("Hand Control", display)
- 
+
+        ui_state = UiState(
+            hand_detected=hand_detected,
+            gripper_closed=last_gripper_closed,
+            angles=last_angles,
+            in_sync=sender.in_sync,
+            last_packet=last_packet,
+            debug=last_debug,
+            target=f"{ESP32_IP}:{ESP32_PORT}",
+        )
+
+        cv2.imshow(WINDOW_NAME, render_dashboard(static_layer, img, ui_state))
+
         key = cv2.waitKey(1) & 0xFF
- 
+
         if key == ord("q"):
             break
- 
- 
+
+
 finally:
  
     log.info("Encerrando controle...")
