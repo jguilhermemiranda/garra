@@ -10,6 +10,8 @@ Observação: as fontes do OpenCV (Hershey) NÃO suportam acentos. Todos os
 textos desenhados aqui são ASCII de propósito (ex.: "MAO", "NAO").
 """
 
+# Ajuste de manutenção para registrar a nova alteração no histórico do projeto.
+
 import logging
 import os
 from dataclasses import dataclass

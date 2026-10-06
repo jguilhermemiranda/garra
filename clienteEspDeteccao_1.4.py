@@ -1,3 +1,4 @@
+# Ajuste de manutenção para registrar a nova alteração no histórico do projeto.
 import logging
 import math
 import os
