@@ -9,7 +9,12 @@ import time
 import cv2
 import mediapipe as mp
 
-from ui_dashboard import UiState, build_static_layer, render_dashboard
+from ui_dashboard import (
+    UiState,
+    is_skeleton_button_clicked,
+    build_static_layer,
+    render_dashboard,
+)
  
 ESP32_IP = "192.168.4.1"
 ESP32_PORT = 80
@@ -22,8 +27,8 @@ AXIS_SMOOTHING_ALPHA = 0.25
  
 DEADBAND_DEG = 2
  
-MIN_SEND_INTERVAL_S = 0.05
- 
+MIN_SEND_INTERVAL_S = 0.20
+
 RETRY_INTERVAL_S = 0.5
  
  
@@ -40,6 +45,7 @@ COLOR_WHITE = (255, 255, 255)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LOGO_PATH = os.path.join(BASE_DIR, "logo.png")
 WINDOW_NAME = "Hand Control"
+SKELETON_ENABLED = False
  
  
 logging.basicConfig(
@@ -192,19 +198,17 @@ def compute_axis_angles(hand_landmarks):
  
  
 def draw_hand(img, hand_landmarks):
- 
     landmark_style = mp_draw.DrawingSpec(
         color=COLOR_WHITE,
         thickness=2,
         circle_radius=5,
     )
- 
     connection_style = mp_draw.DrawingSpec(
         color=COLOR_BLUE,
         thickness=3,
         circle_radius=2,
     )
- 
+
     mp_draw.draw_landmarks(
         image=img,
         landmark_list=hand_landmarks,
@@ -212,6 +216,20 @@ def draw_hand(img, hand_landmarks):
         landmark_drawing_spec=landmark_style,
         connection_drawing_spec=connection_style,
     )
+
+
+def toggle_skeleton():
+    global SKELETON_ENABLED
+    SKELETON_ENABLED = not SKELETON_ENABLED
+    log.info("Esqueleto %s", "ON" if SKELETON_ENABLED else "OFF")
+
+
+def on_mouse_click(event, x, y, flags, param):
+    if event != cv2.EVENT_LBUTTONDOWN:
+        return
+
+    if is_skeleton_button_clicked(x, y):
+        toggle_skeleton()
  
  
 def build_packet(gripper_closed, axis_angles):
@@ -386,6 +404,10 @@ class Esp32Sender:
  
 sender = Esp32Sender(ESP32_IP, ESP32_PORT)
 
+cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_NORMAL)
+cv2.setWindowProperty(WINDOW_NAME, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+cv2.setMouseCallback(WINDOW_NAME, on_mouse_click)
+
 static_layer = build_static_layer(LOGO_PATH)
 
 last_gripper_closed = None
@@ -416,7 +438,8 @@ try:
 
             hand_lms = results.multi_hand_landmarks[0]
 
-            draw_hand(img, hand_lms)
+            if SKELETON_ENABLED:
+                draw_hand(img, hand_lms)
 
             gripper_state = detect_gripper_state(hand_lms)
 
@@ -445,6 +468,7 @@ try:
             last_packet=last_packet,
             debug=last_debug,
             target=f"{ESP32_IP}:{ESP32_PORT}",
+            skeleton_enabled=SKELETON_ENABLED,
         )
 
         cv2.imshow(WINDOW_NAME, render_dashboard(static_layer, img, ui_state))
@@ -453,6 +477,8 @@ try:
 
         if key == ord("q"):
             break
+        if key == ord("s"):
+            toggle_skeleton()
 
 
 finally:

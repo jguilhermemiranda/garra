@@ -61,6 +61,13 @@ AA = cv2.LINE_AA
 
 AXIS_LABELS = ("ROLL", "COTOVELO", "OMBRO")
 AXIS_MAX_DEG = 180
+SKELETON_BUTTON = (CAM_CARD[2] - 180, CAM_CARD[1] + 18, CAM_CARD[2] - 20, CAM_CARD[1] + 54)
+
+
+def is_skeleton_button_clicked(x, y):
+    """Testa as coordenadas da imagem informadas pelo callback do HighGUI."""
+    x1, y1, x2, y2 = SKELETON_BUTTON
+    return x1 <= x <= x2 and y1 <= y <= y2
 
 
 @dataclass
@@ -74,6 +81,7 @@ class UiState:
     last_packet: Optional[str]
     debug: Optional[dict]
     target: str                             # "ip:porta"
+    skeleton_enabled: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -312,6 +320,19 @@ def _draw_packet(canvas, packet):
     _text(canvas, packet or "---", (x1 + 170, y1 + 30), 0.7, BLUE_700, 1, FONT_BOLD)
 
 
+def _draw_skeleton_toggle(canvas, enabled):
+    x1, y1, x2, y2 = SKELETON_BUTTON
+    label = "ESQUELETO ON" if enabled else "ESQUELETO OFF"
+    bg = BLUE_600 if enabled else WHITE
+    fg = WHITE if enabled else BLUE_700
+    border = BLUE_600 if enabled else BORDER
+
+    _rounded_rect(canvas, (x1, y1), (x2, y2), border, 14)
+    _rounded_rect(canvas, (x1 + 2, y1 + 2), (x2 - 2, y2 - 2), bg, 12)
+    _text(canvas, label, ((x1 + x2) // 2, y1 + 18), 0.42, fg, 1, FONT_BOLD,
+          align="center")
+
+
 # ---------------------------------------------------------------------------
 # API pública
 # ---------------------------------------------------------------------------
@@ -321,6 +342,7 @@ def render_dashboard(static_layer, frame, state: UiState):
 
     _draw_header_status(canvas, state)
     _draw_camera(canvas, frame, state.hand_detected)
+    _draw_skeleton_toggle(canvas, state.skeleton_enabled)
     _draw_gripper(canvas, state.gripper_closed)
     _draw_axes(canvas, state.angles, stale=not state.hand_detected)
     _draw_link(canvas, state)
