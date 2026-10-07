@@ -14,7 +14,7 @@ from machine import Pin, PWM
 
 GRIPPER_PIN = 25
 
-GRIPPER_DUTY_CLOSED = 26
+GRIPPER_DUTY_CLOSED = 24
 GRIPPER_DUTY_OPEN = 80
 
 
@@ -150,7 +150,7 @@ TCP_PORT = 80
 # ESTADO ATUAL
 # ============================================================
 
-last_gripper_state = None
+last_gripper_state = "1"
 
 last_angles = [90, 90, 90]
 
@@ -359,6 +359,9 @@ def apply_state(
             GRIPPER_DUTY_OPEN
         )
 
+    # Se o cliente nao mandar comando de abertura, a pinca permanece fechada.
+    # Em caso de ausencia de dados, o estado de seguranca e sempre fechado.
+
 
     # --------------------------------------------------------
     # EIXOS
@@ -401,12 +404,12 @@ for i in range(NUM_AXES):
     axes[i].duty(duty)
 
 
-# Garra inicialmente aberta.
+# Garra inicialmente fechada por seguranca.
 
-last_gripper_state = "0"
+last_gripper_state = "1"
 
 gripper.duty(
-    GRIPPER_DUTY_OPEN
+    GRIPPER_DUTY_CLOSED
 )
 
 

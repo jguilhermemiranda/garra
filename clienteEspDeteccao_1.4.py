@@ -342,6 +342,14 @@ class Esp32Sender:
  
             self._send_once(state)
  
+    def _queue_close_fallback(self, axis_angles):
+        fallback_state = (True, tuple(int(a) for a in axis_angles))
+        try:
+            self._queue.put_nowait(fallback_state)
+        except queue.Full:
+            pass
+        return fallback_state
+ 
     def _send_once(self, state):
  
         packet = build_packet(state[0], state[1])
@@ -367,6 +375,16 @@ class Esp32Sender:
                 packet,
                 RETRY_INTERVAL_S,
             )
+            self._queue_close_fallback(state[1])
+            log.warning("Sem resposta do ESP32; pinça fechada por seguranca.")
+            return
+ 
+        if not response:
+            log.warning(
+                "ESP32 sem resposta para o pacote %s; fechando a pinca por seguranca.",
+                packet,
+            )
+            self._queue_close_fallback(state[1])
             return
  
         if response.startswith("OK"):
@@ -411,7 +429,7 @@ cv2.setMouseCallback(WINDOW_NAME, on_mouse_click)
 
 static_layer = build_static_layer(LOGO_PATH)
 
-last_gripper_closed = None
+last_gripper_closed = True
 last_packet = None
 last_angles = None
 last_debug = None
