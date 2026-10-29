@@ -180,7 +180,7 @@ def build_static_layer(logo_path):
     if logo is not None:
         _overlay_rgba(canvas, logo, MARGIN, 14)
         text_x = MARGIN + logo.shape[1] + 16
-    _text(canvas, "HAND CONTROL", (text_x, 46), 0.95, BLUE_900, 2, FONT_BOLD)
+    _text(canvas, "Dummy Control", (text_x, 46), 0.95, BLUE_900, 2, FONT_BOLD)
     _text(canvas, "Controle do braco por gestos  |  ESP32",
           (text_x, 68), 0.5, MUTED, 1)
 

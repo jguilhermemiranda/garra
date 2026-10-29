@@ -45,7 +45,7 @@ COLOR_WHITE = (255, 255, 255)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LOGO_PATH = os.path.join(BASE_DIR, "logo.png")
-WINDOW_NAME = "Hand Control"
+WINDOW_NAME = "Dummy Control"
 SKELETON_ENABLED = False
  
  
