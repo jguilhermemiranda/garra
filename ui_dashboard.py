@@ -84,6 +84,7 @@ class UiState:
     debug: Optional[dict]
     target: str                             # "ip:porta"
     skeleton_enabled: bool = False
+    paused: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -181,7 +182,7 @@ def build_static_layer(logo_path):
         _overlay_rgba(canvas, logo, MARGIN, 14)
         text_x = MARGIN + logo.shape[1] + 16
     _text(canvas, "Dummy Control", (text_x, 46), 0.95, BLUE_900, 2, FONT_BOLD)
-    _text(canvas, "Controle do braco por gestos  |  ESP32",
+    _text(canvas, "Controle do braco por gestos",
           (text_x, 68), 0.5, MUTED, 1)
 
     # Cards
@@ -197,7 +198,8 @@ def build_static_layer(logo_path):
           0.5, MUTED, 1)
     _text(canvas, "ULTIMO ENVIO", (PACKET_CARD[0] + 20, PACKET_CARD[1] + 28),
           0.5, MUTED, 1)
-    _text(canvas, "Q  para sair", (PACKET_CARD[2] - 20, PACKET_CARD[1] + 28),
+    _text(canvas, "ESC pausa   |   Q sair",
+          (PACKET_CARD[2] - 20, PACKET_CARD[1] + 28),
           0.5, MUTED, 1, align="right")
 
     return canvas
@@ -209,6 +211,10 @@ def build_static_layer(logo_path):
 def _draw_header_status(canvas, state):
     cy = HEADER_H // 2 + 2
     x = CANVAS_W - MARGIN
+
+    if state.paused:
+        _pill(canvas, x, cy, "PAUSADO", BLUE_900, BLUE_100, border=BLUE_200)
+        return
 
     if state.in_sync:
         x = _pill(canvas, x, cy, "SINCRONIZADO", WHITE, BLUE_600)
@@ -222,18 +228,20 @@ def _draw_header_status(canvas, state):
         _pill(canvas, x, cy, "SEM MAO", MUTED, WHITE, border=BORDER)
 
 
-def _draw_camera(canvas, frame, hand_detected):
+def _draw_camera(canvas, frame, hand_detected, paused=False):
     view = cv2.resize(frame, (CAM_W, CAM_H), interpolation=cv2.INTER_AREA)
 
-    # Badge "AO VIVO" translúcido
-    overlay = view.copy()
-    _rounded_rect(overlay, (14, 14), (118, 44), WHITE, 15)
-    cv2.addWeighted(overlay, 0.85, view, 0.15, 0, view)
-    cv2.circle(view, (32, 29), 5, BLUE_600, -1, AA)
-    _text(view, "AO VIVO", (44, 34), 0.45, BLUE_900, 1)
+    # Badge "AO VIVO" translúcido (não aparece em pausa)
+    if not paused:
+        overlay = view.copy()
+        _rounded_rect(overlay, (14, 14), (118, 44), WHITE, 15)
+        cv2.addWeighted(overlay, 0.85, view, 0.15, 0, view)
+        cv2.circle(view, (32, 29), 5, BLUE_600, -1, AA)
+        _text(view, "AO VIVO", (44, 34), 0.45, BLUE_900, 1)
 
     if not hand_detected:
-        text = "Nenhuma mao detectada"
+        text = ("Camera pausada (ESC para retomar)" if paused
+                else "Nenhuma mao detectada")
         (tw, _), _ = cv2.getTextSize(text, FONT, 0.7, 1)
         cx, cy = CAM_W // 2, CAM_H - 44
         overlay = view.copy()
@@ -299,8 +307,15 @@ def _draw_link(canvas, state):
     x1, y1, x2, _ = LINK_CARD
     lx, rx = x1 + 20, x2 - 20
 
+    if state.paused:
+        estado = "PAUSADO"
+    elif state.in_sync:
+        estado = "SINCRONIZADO"
+    else:
+        estado = "AGUARDANDO"
+
     rows = [("Destino", state.target)]
-    rows.append(("Estado", "SINCRONIZADO" if state.in_sync else "AGUARDANDO"))
+    rows.append(("Estado", estado))
     dbg = state.debug
     if dbg is not None:
         rows.append(("hand_scale", f"{dbg['hand_scale']:.3f}"))
@@ -312,7 +327,7 @@ def _draw_link(canvas, state):
     for i, (label, value) in enumerate(rows):
         y = y1 + 58 + i * 26
         _text(canvas, label, (lx, y), 0.5, MUTED, 1)
-        highlight = label == "Estado" and state.in_sync
+        highlight = label == "Estado" and state.in_sync and not state.paused
         _text(canvas, value, (rx, y), 0.5, BLUE_700 if highlight else INK, 1,
               align="right")
 
@@ -343,7 +358,7 @@ def render_dashboard(static_layer, frame, state: UiState):
     canvas = static_layer.copy()
 
     _draw_header_status(canvas, state)
-    _draw_camera(canvas, frame, state.hand_detected)
+    _draw_camera(canvas, frame, state.hand_detected, state.paused)
     _draw_skeleton_toggle(canvas, state.skeleton_enabled)
     _draw_gripper(canvas, state.gripper_closed)
     _draw_axes(canvas, state.angles, stale=not state.hand_detected)

@@ -1,20 +1,10 @@
-# Ajuste de manutenção para registrar a nova alteração no histórico do projeto.
 import network
 import socket
 from machine import Pin, PWM
 
-
-# ============================================================
-# CONFIGURAÇÃO
-# ============================================================
-
-# ------------------------------------------------------------
-# GARRA
-# ------------------------------------------------------------
-
 GRIPPER_PIN = 25
 
-GRIPPER_DUTY_CLOSED = 24
+GRIPPER_DUTY_CLOSED = 20
 GRIPPER_DUTY_OPEN = 80
 
 
@@ -140,7 +130,7 @@ for i in range(NUM_AXES):
 
 SOCKET_RECV_TIMEOUT_S = 2.0
 
-WIFI_SSID = "DUMMY"
+WIFI_SSID = "DUMMY_MK2"
 WIFI_PASSWORD = "12345678"
 
 TCP_PORT = 80
